@@ -1,0 +1,20 @@
+{
+  "name": "verilator",
+  "version": "4.0.0",
+  "description": "Verilator",
+  "main": "index.js",
+  "scripts": {
+    "prepublish": "git clone http://git.veripool.org/git/verilator || true && cd verilator && git pull && autoconf && ./configure && make",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/drom/npm-verilator.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/drom/npm-verilator/issues"
+  },
+  "homepage": "https://github.com/drom/npm-verilator#readme"
+}
