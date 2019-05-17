@@ -4,7 +4,7 @@
   "description": "Verilator",
   "main": "index.js",
   "scripts": {
-    "prepublish": "git clone http://git.veripool.org/git/verilator || true && cd verilator && git pull && autoconf && ./configure && make",
+    "prepare": "git clone http://git.veripool.org/git/verilator || true && cd verilator && git pull && autoconf && ./configure && make",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
