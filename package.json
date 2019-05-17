@@ -1,6 +1,6 @@
 {
   "name": "verilator",
-  "version": "4.0.0",
+  "version": "0.0.0",
   "description": "Verilator",
   "main": "index.js",
   "scripts": {
