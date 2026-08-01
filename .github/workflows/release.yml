@@ -113,6 +113,7 @@ jobs:
 
       - name: Publish platform package
         run: |
+          echo "npm whoami:" && npm whoami
           npm publish --access public
         working-directory: packages/verilator-${{ matrix.target }}
         env:
@@ -136,6 +137,8 @@ jobs:
         run: node scripts/sync-versions.js
 
       - name: Publish main package
-        run: npm publish --access public
+        run: |
+          echo "npm whoami:" && npm whoami
+          npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
