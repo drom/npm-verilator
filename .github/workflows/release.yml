@@ -128,6 +128,12 @@ jobs:
         run: |
           STAGE="$PWD/stage"
           cd src
+          # Remove pre-generated flex/bison outputs. They were generated with an
+          # older flex whose FlexLexer.h used `int` params for LexerInput/Output;
+          # Homebrew flex uses `size_t`, so clang rejects the mismatch
+          # ("out-of-line definition ... does not match any declaration").
+          # Deleting them forces `make` to regenerate with the local flex.
+          rm -f src/V3Lexer_pregen.yy.cpp src/V3ParseBison_pregen.y
           autoconf
           ./configure --prefix "$STAGE"
           make -j"$(sysctl -n hw.ncpu)"

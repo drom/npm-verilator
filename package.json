@@ -1,6 +1,6 @@
 {
   "name": "verilator",
-  "version": "5.048.0",
+  "version": "5.048.1",
   "description": "Verilator (Verilog HDL simulator) as an npm package",
   "bin": {
     "verilator": "bin/verilator.js"
@@ -11,9 +11,9 @@
     "test": "node bin/verilator.js --version"
   },
   "optionalDependencies": {
-    "verilator-linux-x64": "5.048.0",
-    "verilator-darwin-x64": "5.048.0",
-    "verilator-darwin-arm64": "5.048.0"
+    "verilator-linux-x64": "5.048.1",
+    "verilator-darwin-x64": "5.048.1",
+    "verilator-darwin-arm64": "5.048.1"
   },
   "files": [
     "bin",
