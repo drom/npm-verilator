@@ -81,7 +81,7 @@ jobs:
             if [ -f /opt/rh/devtoolset-2/enable ]; then
               set -a; . /opt/rh/devtoolset-2/enable; set +a
             fi
-            # Verilator's astgen uses the walrus operator (:=), needing Python 3.8+.
+            # Verilator astgen uses the walrus operator (:=), needing Python 3.8+.
             # manylinux2014 ships python3.6 as system python, but bundles newer
             # CPython under /opt/python/cpNN-cpNN/. Put 3.9 first on PATH.
             for py in /opt/python/cp39-cp39 /opt/python/cp38-cp38; do
@@ -95,7 +95,7 @@ jobs:
             command -v bison || yum install -y bison
             command -v flex  || yum install -y flex
             command -v perl  || yum install -y perl
-            # The repo is bind-mounted from the host with a different UID → git
+            # The repo is bind-mounted from the host with a different UID, so git
             # refuses to operate ("dubious ownership"). Mark it safe so the build
             # can read the real revision instead of vUNKNOWN.
             git config --global --add safe.directory /work/src
@@ -104,7 +104,7 @@ jobs:
             ./configure --prefix /work/stage
             make -j$(nproc)
             make install
-            # Trim share/ — platform packages ship only bin/ + include/.
+            # Trim share/ -- platform packages ship only bin/ + include/.
             rm -rf /work/stage/share
             # Strip the compiled binaries.
             for bin in verilator_bin verilator_coverage verilator_difftree verilator_ccache_md5; do
