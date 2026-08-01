@@ -11,7 +11,7 @@ const path = require("path");
 
 const PKG = {
   darwin: { x64: "verilator-darwin-x64", arm64: "verilator-darwin-arm64" },
-  linux: { x64: "verilator-linux-x64", arm64: "verilator-linux-arm64" },
+  linux: { x64: "verilator-linux-x64" },
 };
 
 // Windows is not a native target — guide users to WSL2.

@@ -17,27 +17,23 @@ jobs:
   build:
     name: build (${{ matrix.target }})
     runs-on: ${{ matrix.runner }}
-    container: ${{ matrix.container }}
+    # NOTE: do NOT use `container:` — it forces the runner's Node 24 runtime
+    # inside the manylinux2014 container (glibc 2.17), which Node 24 cannot run
+    # on (needs glibc 2.27+). Instead, run on the host and invoke the
+    # manylinux2014 container only for the build step via `docker run`.
     strategy:
       fail-fast: false
       matrix:
         include:
           - target: linux-x64
             runner: ubuntu-latest
-            container: quay.io/pypa/manylinux2014_x86_64
-            strip: strip
-          - target: linux-arm64
-            runner: ubuntu-24.04-arm
-            container: quay.io/pypa/manylinux2014_aarch64
-            strip: strip
+            docker_image: quay.io/pypa/manylinux2014_x86_64
           - target: darwin-x64
             runner: macos-13
-            container: ""
-            strip: strip -x
+            docker_image: ""
           - target: darwin-arm64
             runner: macos-14
-            container: ""
-            strip: strip -x
+            docker_image: ""
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -45,7 +41,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Derive Verilator tag from package version
@@ -64,43 +60,59 @@ jobs:
         run: |
           # macOS ships bison 2.x (too old for Verilator, needs 3+) and no flex/autoconf.
           brew install bison flex autoconf
-          # Put Homebrew bison/flex ahead of system ones on PATH.
-          echo "$(brew --prefix bison)/bin"   >> "$GITHUB_PATH"
-          echo "$(brew --prefix flex)/bin"    >> "$GITHUB_PATH"
+          echo "$(brew --prefix bison)/bin"    >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin"     >> "$GITHUB_PATH"
           echo "$(brew --prefix autoconf)/bin" >> "$GITHUB_PATH"
-
-      - name: Enable devtoolset (manylinux)
-        if: runner.os == 'Linux'
-        run: |
-          # manylinux2014 ships a modern gcc/g++ via devtoolset, but it is not on
-          # PATH by default. Source the env so autoconf/make pick up the right compiler.
-          if [ -f /opt/rh/devtoolset-2/enable ]; then
-            set -a; . /opt/rh/devtoolset-2/enable; set +a
-          fi
-          # Safety net: ensure Verilator's build deps are present.
-          command -v bison   || yum install -y bison
-          command -v flex    || yum install -y flex
-          command -v perl    || yum install -y perl
-          command -v python3 || yum install -y python3
 
       - name: Clone Verilator source
         run: |
           git clone --depth 1 --branch ${{ steps.vtag.outputs.verilator_tag }} \
             https://github.com/verilator/verilator src
 
-      - name: Build & install to a stage dir
+      - name: Build inside manylinux2014 container (Linux)
+        if: matrix.docker_image != ''
+        run: |
+          # Build Verilator inside the manylinux2014 container (glibc 2.17) so
+          # the resulting binaries run on CentOS 7 and newer. The host runner
+          # has modern glibc; only the build runs against the old base.
+          docker run --rm -v "$PWD:/work" -w /work ${{ matrix.docker_image }} sh -c '
+            set -e
+            # devtoolset provides a modern gcc/g++ not on PATH by default.
+            if [ -f /opt/rh/devtoolset-2/enable ]; then
+              set -a; . /opt/rh/devtoolset-2/enable; set +a
+            fi
+            # Ensure Verilator build deps are present.
+            command -v bison   || yum install -y bison
+            command -v flex    || yum install -y flex
+            command -v perl    || yum install -y perl
+            command -v python3 || yum install -y python3
+            cd /work/src
+            autoconf
+            ./configure --prefix /work/stage
+            make -j$(nproc)
+            make install
+            # Trim share/ — platform packages ship only bin/ + include/.
+            rm -rf /work/stage/share
+            # Strip the compiled binaries.
+            for bin in verilator_bin verilator_coverage verilator_difftree verilator_ccache_md5; do
+              [ -f /work/stage/bin/$bin ] && strip /work/stage/bin/$bin || true
+            done
+          '
+          # Files were created as root inside the container; fix ownership.
+          sudo chown -R "$(id -u):$(id -g)" stage/
+
+      - name: Build natively (macOS)
+        if: matrix.docker_image == ''
         run: |
           STAGE="$PWD/stage"
           cd src
           autoconf
           ./configure --prefix "$STAGE"
-          make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+          make -j"$(sysctl -n hw.ncpu)"
           make install
-          # Trim share/ — platform packages ship only bin/ + include/.
           rm -rf "$STAGE/share"
-          # Strip the compiled binaries.
           for bin in verilator_bin verilator_coverage verilator_difftree verilator_ccache_md5; do
-            [ -f "$STAGE/bin/$bin" ] && ${{ matrix.strip }} "$STAGE/bin/$bin" || true
+            [ -f "$STAGE/bin/$bin" ] && strip -x "$STAGE/bin/$bin" || true
           done
 
       - name: Stage into packages/<target>/
@@ -130,7 +142,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
           registry-url: "https://registry.npmjs.org"
 
       - name: Sync versions

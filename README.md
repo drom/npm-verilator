@@ -21,7 +21,6 @@ npm only downloads the platform package matching your `os`/`cpu`:
 | Package                  | `os`     | `cpu`   |
 | ------------------------ | -------- | ------- |
 | `verilator-linux-x64`    | `linux`  | `x64`   |
-| `verilator-linux-arm64`  | `linux`  | `arm64` |
 | `verilator-darwin-x64`   | `darwin` | `x64`   |
 | `verilator-darwin-arm64` | `darwin` | `arm64` |
 

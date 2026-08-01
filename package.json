@@ -12,7 +12,6 @@
   },
   "optionalDependencies": {
     "verilator-linux-x64": "5.048.0",
-    "verilator-linux-arm64": "5.048.0",
     "verilator-darwin-x64": "5.048.0",
     "verilator-darwin-arm64": "5.048.0"
   },
