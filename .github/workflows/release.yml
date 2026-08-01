@@ -1,0 +1,117 @@
+name: release
+
+# Builds Verilator per target, stages bin/ + include/ into the matching
+# platform package, publishes the 4 platform packages, then the main package.
+# Platform packages MUST publish first so the main package's optionalDependencies
+# resolve. Triggered by a version tag (v<verilator>.<pkg-rev>, e.g. v5.048.0).
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.runner }}
+    container: ${{ matrix.container }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            runner: ubuntu-latest
+            container: quay.io/pypa/manylinux2014_x86_64
+            strip: strip
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+            container: quay.io/pypa/manylinux2014_aarch64
+            strip: strip
+          - target: darwin-x64
+            runner: macos-13
+            container: ""
+            strip: strip -x
+          - target: darwin-arm64
+            runner: macos-14
+            container: ""
+            strip: strip -x
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Derive Verilator tag from package version
+        id: vtag
+        run: |
+          # npm version 5.048.0 -> Verilator tag v5.048
+          V="$(node -p "require('./package.json').version")"
+          MAJOR="${V%%.*}"
+          REST="${V#*.}"
+          MINOR="${REST%%.*}"
+          echo "verilator_tag=v${MAJOR}.${MINOR}" >> "$GITHUB_OUTPUT"
+          echo "npm_version=${V}" >> "$GITHUB_OUTPUT"
+
+      - name: Clone Verilator source
+        run: |
+          git clone --depth 1 --branch ${{ steps.vtag.outputs.verilator_tag }} \
+            https://github.com/verilator/verilator src
+
+      - name: Build & install to a stage dir
+        run: |
+          STAGE="$PWD/stage"
+          cd src
+          autoconf
+          ./configure --prefix "$STAGE"
+          make -j"$(nproc 2>/dev/null || sysctl -n hw.ncpu)"
+          make install
+          # Trim share/ — platform packages ship only bin/ + include/.
+          rm -rf "$STAGE/share"
+          # Strip the compiled binaries.
+          for bin in verilator_bin verilator_coverage verilator_difftree verilator_ccache_md5; do
+            [ -f "$STAGE/bin/$bin" ] && ${{ matrix.strip }} "$STAGE/bin/$bin" || true
+          done
+
+      - name: Stage into packages/<target>/
+        run: |
+          TARGET="${{ matrix.target }}"
+          mkdir -p "packages/verilator-${TARGET}"
+          cp -a stage/bin "packages/verilator-${TARGET}/bin"
+          cp -a stage/include "packages/verilator-${TARGET}/include"
+          node scripts/sync-versions.js
+
+      - name: Publish platform package
+        run: |
+          npm publish --access public
+        working-directory: packages/verilator-${{ matrix.target }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  publish-main:
+    name: publish main package
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Sync versions
+        run: node scripts/sync-versions.js
+
+      - name: Publish main package
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

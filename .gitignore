@@ -1,2 +1,7 @@
+node_modules
 package-lock.json
 verilator
+
+# Platform install trees staged by CI before npm publish — never checked in.
+packages/*/bin
+packages/*/include

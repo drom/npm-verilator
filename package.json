@@ -1,18 +1,32 @@
 {
   "name": "verilator",
-  "version": "0.1.0",
-  "description": "Verilator",
-  "main": "index.js",
-  "scripts": {
-    "prepare": "git clone http://git.veripool.org/git/verilator || true && cd verilator && git pull && autoconf && ./configure && make",
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "version": "5.048.0",
+  "description": "Verilator (Verilog HDL simulator) as an npm package",
+  "bin": {
+    "verilator": "bin/verilator.js"
   },
+  "scripts": {
+    "sync-versions": "node scripts/sync-versions.js",
+    "prepublishOnly": "node scripts/sync-versions.js",
+    "test": "node bin/verilator.js --version"
+  },
+  "optionalDependencies": {
+    "verilator-linux-x64": "5.048.0",
+    "verilator-linux-arm64": "5.048.0",
+    "verilator-darwin-x64": "5.048.0",
+    "verilator-darwin-arm64": "5.048.0"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/drom/npm-verilator.git"
   },
   "author": "",
-  "license": "ISC",
+  "license": "LGPL-3.0-only",
   "bugs": {
     "url": "https://github.com/drom/npm-verilator/issues"
   },
