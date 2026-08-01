@@ -1,6 +1,6 @@
 {
   "name": "verilator-darwin-arm64",
-  "version": "5.048.1",
+  "version": "5.048.2",
   "description": "Prebuilt Verilator install tree (bin/ + include/) for darwin/arm64",
   "license": "LGPL-3.0-only",
   "repository": {
