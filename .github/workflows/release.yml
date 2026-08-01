@@ -81,11 +81,24 @@ jobs:
             if [ -f /opt/rh/devtoolset-2/enable ]; then
               set -a; . /opt/rh/devtoolset-2/enable; set +a
             fi
+            # Verilator's astgen uses the walrus operator (:=), needing Python 3.8+.
+            # manylinux2014 ships python3.6 as system python, but bundles newer
+            # CPython under /opt/python/cpNN-cpNN/. Put 3.9 first on PATH.
+            for py in /opt/python/cp39-cp39 /opt/python/cp38-cp38; do
+              if [ -x "$py/bin/python3" ]; then
+                export PATH="$py/bin:$PATH"
+                break
+              fi
+            done
+            python3 --version
             # Ensure Verilator build deps are present.
-            command -v bison   || yum install -y bison
-            command -v flex    || yum install -y flex
-            command -v perl    || yum install -y perl
-            command -v python3 || yum install -y python3
+            command -v bison || yum install -y bison
+            command -v flex  || yum install -y flex
+            command -v perl  || yum install -y perl
+            # The repo is bind-mounted from the host with a different UID → git
+            # refuses to operate ("dubious ownership"). Mark it safe so the build
+            # can read the real revision instead of vUNKNOWN.
+            git config --global --add safe.directory /work/src
             cd /work/src
             autoconf
             ./configure --prefix /work/stage
