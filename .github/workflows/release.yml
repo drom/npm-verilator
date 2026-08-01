@@ -128,12 +128,13 @@ jobs:
         run: |
           STAGE="$PWD/stage"
           cd src
-          # Remove pre-generated flex/bison outputs. They were generated with an
-          # older flex whose FlexLexer.h used `int` params for LexerInput/Output;
-          # Homebrew flex uses `size_t`, so clang rejects the mismatch
-          # ("out-of-line definition ... does not match any declaration").
-          # Deleting them forces `make` to regenerate with the local flex.
-          rm -f src/V3Lexer_pregen.yy.cpp src/V3ParseBison_pregen.y
+          # Verilator's flexfix script patches flex output (int -> size_t on
+          # LexerInput/LexerOutput) but only for macOS >= 26 (Tahoe). The
+          # macos-14 runner is macOS 14/15, where Homebrew flex still generates
+          # `int` signatures that clash with FlexLexer.h's `size_t` -> clang
+          # error: "out-of-line definition does not match any declaration".
+          # Lower the threshold so the patch fires on all macOS versions.
+          sed -i '' 's/>= 26/>= 0/' src/flexfix
           autoconf
           ./configure --prefix "$STAGE"
           make -j"$(sysctl -n hw.ncpu)"
