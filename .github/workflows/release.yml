@@ -91,10 +91,13 @@ jobs:
               fi
             done
             python3 --version
-            # Ensure Verilator build deps are present.
-            command -v bison || yum install -y bison
-            command -v flex  || yum install -y flex
-            command -v perl  || yum install -y perl
+            # Ensure Verilator build deps are present. help2man is needed by the
+            # default make target to build man pages (we trim share/ later, but
+            # the build itself still requires it).
+            command -v bison    || yum install -y bison
+            command -v flex     || yum install -y flex
+            command -v perl     || yum install -y perl
+            command -v help2man || yum install -y help2man
             # The repo is bind-mounted from the host with a different UID, so git
             # refuses to operate ("dubious ownership"). Mark it safe so the build
             # can read the real revision instead of vUNKNOWN.
