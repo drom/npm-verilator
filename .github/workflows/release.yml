@@ -59,6 +59,30 @@ jobs:
           echo "verilator_tag=v${MAJOR}.${MINOR}" >> "$GITHUB_OUTPUT"
           echo "npm_version=${V}" >> "$GITHUB_OUTPUT"
 
+      - name: Install build prerequisites (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          # macOS ships bison 2.x (too old for Verilator, needs 3+) and no flex/autoconf.
+          brew install bison flex autoconf
+          # Put Homebrew bison/flex ahead of system ones on PATH.
+          echo "$(brew --prefix bison)/bin"   >> "$GITHUB_PATH"
+          echo "$(brew --prefix flex)/bin"    >> "$GITHUB_PATH"
+          echo "$(brew --prefix autoconf)/bin" >> "$GITHUB_PATH"
+
+      - name: Enable devtoolset (manylinux)
+        if: runner.os == 'Linux'
+        run: |
+          # manylinux2014 ships a modern gcc/g++ via devtoolset, but it is not on
+          # PATH by default. Source the env so autoconf/make pick up the right compiler.
+          if [ -f /opt/rh/devtoolset-2/enable ]; then
+            set -a; . /opt/rh/devtoolset-2/enable; set +a
+          fi
+          # Safety net: ensure Verilator's build deps are present.
+          command -v bison   || yum install -y bison
+          command -v flex    || yum install -y flex
+          command -v perl    || yum install -y perl
+          command -v python3 || yum install -y python3
+
       - name: Clone Verilator source
         run: |
           git clone --depth 1 --branch ${{ steps.vtag.outputs.verilator_tag }} \
