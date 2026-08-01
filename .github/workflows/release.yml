@@ -28,12 +28,21 @@ jobs:
           - target: linux-x64
             runner: ubuntu-latest
             docker_image: quay.io/pypa/manylinux2014_x86_64
+            arch_prefix: ""
+            brew_prefix: ""
+          # macos-13 (Intel) runners are deprecated/gone. Build darwin-x64 on an
+          # arm64 runner (macos-14) via Rosetta 2, using a separate x64 Homebrew
+          # at /usr/local (installed under arch -x86_64) for flex/bison/help2man.
           - target: darwin-x64
-            runner: macos-13
+            runner: macos-14
             docker_image: ""
+            arch_prefix: arch -x86_64
+            brew_prefix: /usr/local
           - target: darwin-arm64
             runner: macos-14
             docker_image: ""
+            arch_prefix: ""
+            brew_prefix: /opt/homebrew
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -57,14 +66,35 @@ jobs:
 
       - name: Install build prerequisites (macOS)
         if: runner.os == 'macOS'
+        env:
+          ARCH_PREFIX: ${{ matrix.arch_prefix }}
+          BREW_PREFIX: ${{ matrix.brew_prefix }}
         run: |
-          # macOS ships bison 2.x (too old for Verilator, needs 3+) and no
-          # flex/autoconf/help2man. help2man is needed by the default make target
-          # to build man pages (we trim share/ later, but the build needs it).
-          brew install bison flex autoconf help2man
-          echo "$(brew --prefix bison)/bin"    >> "$GITHUB_PATH"
-          echo "$(brew --prefix flex)/bin"     >> "$GITHUB_PATH"
-          echo "$(brew --prefix autoconf)/bin" >> "$GITHUB_PATH"
+          # macOS ships bison 2.3 (2008, too old for Verilator, needs 3+) and
+          # no flex/autoconf/help2man. help2man is needed by the default make
+          # target to build man pages (we trim share/ later, but the build
+          # needs it).
+          #
+          # For darwin-x64 we build on an arm64 runner via Rosetta 2. The arm64
+          # Homebrew (/opt/homebrew) tools cannot run under arch -x86_64, so we
+          # install a separate x64 Homebrew at /usr/local (the classic Intel
+          # prefix) under Rosetta, and use those x64 tools.
+          if [ -n "$ARCH_PREFIX" ]; then
+            # Install x64 Homebrew at /usr/local if not already present.
+            if [ ! -x /usr/local/bin/brew ]; then
+              $ARCH_PREFIX /bin/bash -c \
+                "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            fi
+            BREW=/usr/local/bin/brew
+            $ARCH_PREFIX "$BREW" install bison flex autoconf help2man
+          else
+            BREW=brew
+            "$BREW" install bison flex autoconf help2man
+          fi
+          # Put the Homebrew flex/bison/autoconf ahead of system ones on PATH.
+          echo "$BREW_PREFIX/opt/bison/bin"    >> "$GITHUB_PATH"
+          echo "$BREW_PREFIX/opt/flex/bin"     >> "$GITHUB_PATH"
+          echo "$BREW_PREFIX/opt/autoconf/bin" >> "$GITHUB_PATH"
 
       - name: Clone Verilator source
         run: |
@@ -127,6 +157,8 @@ jobs:
 
       - name: Build natively (macOS)
         if: matrix.docker_image == ''
+        env:
+          ARCH_PREFIX: ${{ matrix.arch_prefix }}
         run: |
           STAGE="$PWD/stage"
           cd src
@@ -137,10 +169,13 @@ jobs:
           # error: "out-of-line definition does not match any declaration".
           # Lower the threshold so the patch fires on all macOS versions.
           sed -i '' 's/>= 26/>= 0/' src/flexfix
-          autoconf
-          ./configure --prefix "$STAGE"
-          make -j"$(sysctl -n hw.ncpu)"
-          make install
+          # For darwin-x64 we build on an arm64 runner via Rosetta 2.
+          # ARCH_PREFIX is "arch -x86_64" for x64, empty for arm64.
+          $ARCH_PREFIX autoconf
+          $ARCH_PREFIX ./configure --prefix "$STAGE" \
+            --disable-partial-static
+          $ARCH_PREFIX make -j"$(sysctl -n hw.ncpu)"
+          $ARCH_PREFIX make install
           # Verilator installs headers under share/verilator/include/, not
           # include/. Move them to the top-level include/ the platform package
           # expects, then drop share/.
