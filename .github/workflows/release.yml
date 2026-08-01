@@ -107,7 +107,13 @@ jobs:
             ./configure --prefix /work/stage
             make -j$(nproc)
             make install
-            # Trim share/ -- platform packages ship only bin/ + include/.
+            # Verilator installs headers under share/verilator/include/ (per
+            # pkgdatadir in configure.ac), not include/. Move them to the
+            # top-level include/ the platform package expects, then drop share/.
+            if [ -d /work/stage/share/verilator/include ]; then
+              mkdir -p /work/stage/include
+              cp -a /work/stage/share/verilator/include/. /work/stage/include/
+            fi
             rm -rf /work/stage/share
             # Strip the compiled binaries.
             for bin in verilator_bin verilator_coverage verilator_difftree verilator_ccache_md5; do
@@ -126,6 +132,13 @@ jobs:
           ./configure --prefix "$STAGE"
           make -j"$(sysctl -n hw.ncpu)"
           make install
+          # Verilator installs headers under share/verilator/include/, not
+          # include/. Move them to the top-level include/ the platform package
+          # expects, then drop share/.
+          if [ -d "$STAGE/share/verilator/include" ]; then
+            mkdir -p "$STAGE/include"
+            cp -a "$STAGE/share/verilator/include/." "$STAGE/include/"
+          fi
           rm -rf "$STAGE/share"
           for bin in verilator_bin verilator_coverage verilator_difftree verilator_ccache_md5; do
             [ -f "$STAGE/bin/$bin" ] && strip -x "$STAGE/bin/$bin" || true
